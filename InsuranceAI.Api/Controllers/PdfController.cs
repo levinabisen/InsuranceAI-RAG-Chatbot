@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using UglyToad.PdfPig;
+using Microsoft.EntityFrameworkCore;
 
 namespace InsuranceAI.Api.Controllers
 {
@@ -277,6 +278,23 @@ namespace InsuranceAI.Api.Controllers
 
                 totalChunks = totalChunks
             });
+        }
+
+
+        [HttpGet("list")]
+        public async Task<IActionResult> ListDocuments()
+        {
+            var documents = await _context.DocumentChunks
+                .GroupBy(x => x.DocumentName)
+                .Select(g => new
+                {
+                    DocumentName = g.Key,
+                    TotalChunks = g.Count(),
+                    TotalPages = g.Select(x => x.PageNumber).Distinct().Count()
+                })
+                .ToListAsync();
+
+            return Ok(documents);
         }
 
 
