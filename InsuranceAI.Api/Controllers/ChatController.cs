@@ -4,6 +4,8 @@ using InsuranceAI.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Qdrant.Client;
 using System.Text;
 using System.Text.Json;
 
@@ -18,15 +20,38 @@ namespace InsuranceAI.Api.Controllers
         private readonly IEmbeddingService _embeddingService;
         private readonly IQdrantService _qdrantService;   // NAYA
 
+        //new
+        private readonly QdrantClient _client;
+        
+        private readonly int _topK;
+        private readonly string _baseUrl;
+        private readonly string _chatModel;
+
+        private readonly double _temperature;
+
+        private readonly double _similarityThreshold;
 
         public ChatController(
             IHttpClientFactory httpClientFactory,
-            AppDbContext db, IEmbeddingService embeddingService, IQdrantService qdrantService)
+            AppDbContext db, IEmbeddingService embeddingService, IQdrantService qdrantService, IOptions<QdrantOptions> options, IOptions<OllamaOptions> ollamaOptions, IOptions<RagOptions> ragOptions)
         {
             _httpClient = httpClientFactory.CreateClient();
             _db = db;
             _embeddingService = embeddingService;
             _qdrantService = qdrantService;
+
+            var config = options.Value;
+            _client = new QdrantClient(config.Host, config.Port);
+
+            var config2 = ragOptions.Value;
+            _topK = config2.TopK;
+            _similarityThreshold = config2.SimilarityThreshold;
+
+            var config3 = ollamaOptions.Value;
+            _baseUrl = config3.BaseUrl;
+            _chatModel = config3.ChatModel;
+            _temperature = config3.Temperature;
+            
         }
 
         //previous method
@@ -166,7 +191,7 @@ namespace InsuranceAI.Api.Controllers
 
             var searchResults = await _qdrantService.SearchAsync(
     questionEmbedding,
-    topK: 3,
+    _topK,
     documentName: request.DocumentName);
             //var documents = await _db.DocumentChunks
             //    .Select(x => new
@@ -355,7 +380,7 @@ namespace InsuranceAI.Api.Controllers
 
             var requestBody = new
             {
-                model = "llama3.2:3b",
+                model = _chatModel/*"llama3.2:3b"*/,
 
                 system =
                     "You are a helpful insurance assistant. " +
@@ -365,7 +390,7 @@ namespace InsuranceAI.Api.Controllers
 
                 stream = false,
 
-                temperature = 0.2
+               _temperature //temperature = 0.2
             };
 
 
@@ -388,7 +413,7 @@ namespace InsuranceAI.Api.Controllers
             // ============================================
 
             var response = await _httpClient.PostAsync(
-                "http://localhost:11434/api/generate",
+                $"{_baseUrl}/api/generate",
                 content
             );
 
