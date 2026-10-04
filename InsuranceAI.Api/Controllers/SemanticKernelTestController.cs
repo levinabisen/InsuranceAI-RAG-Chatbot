@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using InsuranceAI.Api.Model;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.Qdrant;
+using Qdrant.Client;
 
 namespace InsuranceAI.Api.Controllers
 {
@@ -24,6 +27,21 @@ namespace InsuranceAI.Api.Controllers
             var result = await kernel.InvokePromptAsync(question);
 
             return Ok(new { answer = result.ToString() });
+        }
+
+        // NAYA ENDPOINT — YAHI TUMHARI LINE AAYEGI
+        [HttpPost("create-collection")]
+        public async Task<IActionResult> CreateCollection()
+        {
+            var vectorStore = new QdrantVectorStore(
+                new QdrantClient("localhost"),
+                ownsClient: true);
+
+            var collection = vectorStore.GetCollection<ulong, ChunkRecord>("document_chunks");
+
+            await collection.EnsureCollectionExistsAsync();
+
+            return Ok(new { message = "Collection ready via Semantic Kernel." });
         }
     }
 }
