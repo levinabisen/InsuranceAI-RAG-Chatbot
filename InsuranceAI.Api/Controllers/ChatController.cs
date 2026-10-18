@@ -14,6 +14,7 @@ namespace InsuranceAI.Api.Controllers
     public class ChatController : ControllerBase
     {
         private readonly HttpClient _httpClient;
+        private readonly ILogger<ChatController> _logger;
         private readonly AppDbContext _db;
         private readonly IEmbeddingService _embeddingService;
         private readonly IQdrantService _qdrantService;   // NAYA
@@ -21,10 +22,11 @@ namespace InsuranceAI.Api.Controllers
 
         public ChatController(
             IHttpClientFactory httpClientFactory,
-            AppDbContext db, IEmbeddingService embeddingService, IQdrantService qdrantService)
+            AppDbContext db, ILogger<ChatController> logger, IEmbeddingService embeddingService, IQdrantService qdrantService)
         {
             _httpClient = httpClientFactory.CreateClient();
             _db = db;
+            _logger = logger;
             _embeddingService = embeddingService;
             _qdrantService = qdrantService;
         }
@@ -118,6 +120,12 @@ namespace InsuranceAI.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> Chat([FromBody] ChatRequest request)
         {
+
+            if (string.IsNullOrEmpty(request.ConversationId)||string.IsNullOrWhiteSpace(request.Message))
+            {
+                return BadRequest("field cannot be empty.");
+            }
+
             // ============================================
             // 1. Previous conversation history
             // ============================================
@@ -387,11 +395,28 @@ namespace InsuranceAI.Api.Controllers
             // 13. Send request to Ollama
             // ============================================
 
-            var response = await _httpClient.PostAsync(
-                "http://localhost:11434/api/generate",
-                content
-            );
+            //var response = await _httpClient.PostAsync(
+            //    "http://localhost:11434/api/generate",
+            //    content
+            //);
+            HttpResponseMessage response;
 
+            try
+            {
+                response = await _httpClient.PostAsync(
+                    "http://localhost:11434/api/generate",
+                    content
+                );
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Ollama connection failed");
+
+                return StatusCode(503, new
+                {
+                    message = "AI service is currently unavailable. Please try again."
+                });
+            }
 
             // ============================================
             // 14. Check Ollama response
