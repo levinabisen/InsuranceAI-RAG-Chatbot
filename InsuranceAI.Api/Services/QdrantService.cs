@@ -1,5 +1,7 @@
-﻿using Qdrant.Client.Grpc;
+﻿using InsuranceAI.Api.Model;
+using Microsoft.Extensions.Options;
 using Qdrant.Client;
+using Qdrant.Client.Grpc;
 
 namespace InsuranceAI.Api.Services
 {
@@ -8,25 +10,33 @@ namespace InsuranceAI.Api.Services
         
     
         private readonly QdrantClient _client;
-        private const string CollectionName = "document_chunks";
-        private const int VectorSize = 768;
+        //private const string CollectionName = "document_chunks";
+        //private const int VectorSize = 768;
+        private readonly string _collectionName;
+        private readonly int _vectorSize;
 
-        public QdrantService()
+
+        public QdrantService(IOptions<QdrantOptions> options)
         {
-            _client = new QdrantClient("localhost", 6334);
+           // _client = new QdrantClient("localhost", 6334);
+            var config = options.Value;
+            _collectionName = config.CollectionName;
+            _vectorSize = config.VectorSize;
+            _client = new QdrantClient(config.Host, config.Port);
         }
 
         public async Task EnsureCollectionExistsAsync()
         {
             var collections = await _client.ListCollectionsAsync();
 
-            if (!collections.Contains(CollectionName))
+            if (!collections.Contains(_collectionName))
             {
                 await _client.CreateCollectionAsync(
-                    collectionName: CollectionName,
+                    collectionName: _collectionName,
                     vectorsConfig: new VectorParams
                     {
-                        Size = VectorSize,
+                        //Size = _vectorSize,
+                        Size = ((ulong)_vectorSize),
                         Distance = Distance.Cosine
                     }
                 );
@@ -55,7 +65,7 @@ namespace InsuranceAI.Api.Services
         }
             };
 
-            await _client.UpsertAsync(CollectionName, new List<PointStruct> { point });
+            await _client.UpsertAsync(_collectionName, new List<PointStruct> { point });
         }
 
 
@@ -66,7 +76,7 @@ namespace InsuranceAI.Api.Services
 
             // Qdrant se search karo - top K similar points
             var results = await _client.SearchAsync(
-                collectionName: CollectionName,
+                collectionName: _collectionName,
                 vector: queryVector,
                 limit: (ulong)topK
             );
@@ -78,7 +88,7 @@ namespace InsuranceAI.Api.Services
         public async Task DeleteByDocumentNameAsync(string documentName)
         {
             await _client.DeleteAsync(
-                collectionName: CollectionName,
+                collectionName: _collectionName,
                 filter: new Filter
                 {
                     Must =
@@ -124,7 +134,7 @@ namespace InsuranceAI.Api.Services
             }
 
             var results = await _client.SearchAsync(
-                collectionName: CollectionName,
+                collectionName: _collectionName,
                 vector: queryVector,
                 filter: filter,
                 limit: (ulong)topK

@@ -1,6 +1,7 @@
 using InsuranceAI.Api;
-using InsuranceAI.Api.Services;
 using InsuranceAI.Api.Data;
+using InsuranceAI.Api.Model;
+using InsuranceAI.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -34,6 +35,14 @@ builder.Services.AddHttpClient<
 >();
 builder.Services.AddScoped<IChunkService, ChunkService>();
 builder.Services.AddSingleton<IQdrantService, QdrantService>();
+
+builder.Services.Configure<QdrantOptions>(
+    builder.Configuration.GetSection("Qdrant"));
+builder.Services.Configure<OllamaOptions>(
+    builder.Configuration.GetSection("Ollama"));
+builder.Services.Configure<RagOptions>(
+    builder.Configuration.GetSection("Rag"));
+
 var app = builder.Build();
 
 // Collection ensure karo app start hote hi
